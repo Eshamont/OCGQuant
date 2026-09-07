@@ -1,0 +1,33 @@
+# Build outputs
+build/
+dist/
+*.egg-info/
+**/CMakeFiles/
+Makefile
+CMakeCache.txt
+*.so
+*.o
+*.egg
+
+# Experiment outputs and cached tensors
+results/
+output/
+checkpoints/
+saved/
+*.pt
+*.pth
+*.log
+log.txt
+
+# Python and tooling caches
+__pycache__/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+
+# Local environments and editor state
+.venv/
+.env
+.vscode/
+.ipynb_checkpoints/

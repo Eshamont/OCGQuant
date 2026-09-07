@@ -1,0 +1,7 @@
+datasets==3.4.0
+transformers==5.5.4
+peft==0.17.1
+huggingface_hub==1.15.0
+lm-eval==0.4.8
+matplotlib==3.10.5
+hf_transfer

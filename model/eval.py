@@ -1,0 +1,103 @@
+import torch
+import torch.nn as nn
+from tqdm import tqdm
+import fnmatch
+
+def pattern_match(patterns, source_list):
+    task_names = set()
+    for pattern in patterns:
+        for matching in fnmatch.filter(source_list, pattern):
+            task_names.add(matching)
+    return list(task_names)
+
+@torch.no_grad()
+def eval_ppl(model, testenc, dev):
+    testenc = testenc.input_ids
+    nsamples = testenc.numel() // 2048
+    layers = model.model.layers
+
+    model.model.embed_tokens = model.model.embed_tokens.to(dev)
+    if hasattr(model.model, 'rotary_emb'):
+        model.model.rotary_emb = model.model.rotary_emb.to(dev)
+    layers[0] = layers[0].to(dev)
+
+    dtype = next(iter(model.parameters())).dtype
+    inps = torch.zeros(
+        (nsamples, 2048, model.config.hidden_size), dtype=dtype, device='cpu'
+    )
+    cache = {'i': 0, 'attention_mask': None, 'position_ids': None, 'position_embeddings': None}
+
+    class Catcher(nn.Module):
+        def __init__(self, module):
+            super().__init__()
+            self.module = module
+            self.self_attn = module.self_attn
+            if hasattr(module, "attention_type"):
+                self.attention_type = module.attention_type
+        def forward(self, inp, **kwargs):
+            inps[cache['i']] = inp.detach().cpu()
+            cache['i'] += 1
+            cache['attention_mask'] = kwargs.get('attention_mask')
+            cache['position_ids'] = kwargs.get('position_ids')
+            cache['position_embeddings'] = kwargs.get('position_embeddings')
+            raise ValueError
+    layers[0] = Catcher(layers[0])
+    for i in range(nsamples):
+        batch = testenc[:, (i * 2048):((i + 1) * 2048)].to(dev)
+        try:
+            model(batch)
+        except ValueError:
+            pass
+    layers[0] = layers[0].module
+
+    layers[0] = layers[0].cpu()
+    model.model.embed_tokens = model.model.embed_tokens.cpu()
+    if hasattr(model.model, 'rotary_emb'):
+        model.model.rotary_emb = model.model.rotary_emb.cpu()
+    torch.cuda.empty_cache()
+
+    outs = torch.zeros_like(inps)
+    attention_mask = cache['attention_mask']
+    position_ids = cache['position_ids']
+    position_embeddings = cache['position_embeddings']
+
+    for i in tqdm(range(len(layers))):
+        layer = layers[i].to(dev)
+        for j in range(nsamples):
+            layer_out = layer(
+                inps[j].unsqueeze(0).to(dev),
+                attention_mask=attention_mask,
+                position_ids=position_ids,
+                position_embeddings=position_embeddings,
+            )
+            layer_out = layer_out[0] if isinstance(layer_out, tuple) else layer_out
+            outs[j] = layer_out.detach().cpu()
+        layers[i] = layer.cpu()
+        del layer
+        inps, outs = outs, inps
+        torch.cuda.empty_cache()
+
+    if model.model.norm is not None:
+        model.model.norm = model.model.norm.to(dev)
+    model.lm_head = model.lm_head.to(dev)
+
+    nlls = []
+    ntokens = 0
+    for i in range(nsamples):
+        hidden_states = inps[i].unsqueeze(0).to(dev)
+        if model.model.norm is not None:
+            hidden_states = model.model.norm(hidden_states)
+        lm_logits = model.lm_head(hidden_states)
+        shift_logits = lm_logits[:, :-1, :].contiguous()
+        shift_labels = testenc[
+            :, (i * 2048):((i + 1) * 2048)
+        ][:, 1:].to(dev)
+        loss_fct = nn.CrossEntropyLoss()
+        loss = loss_fct(shift_logits.view(-1, shift_logits.size(-1)), shift_labels.view(-1))
+        token_count = shift_labels.numel()
+        neg_log_likelihood = loss.float() * token_count
+        nlls.append(neg_log_likelihood)
+        ntokens += token_count
+    ppl = torch.exp(torch.stack(nlls).sum() / ntokens)
+
+    return ppl.item()
