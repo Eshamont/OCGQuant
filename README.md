@@ -1,8 +1,8 @@
 # OCGQuant: Outlier-Companion Grouping for NVFP4 Quantization
 
-[![arXiv](https://img.shields.io/badge/arXiv-2609.00066-b31b1b.svg)](https://arxiv.org/abs/2609.00066)
+[![arXiv](https://img.shields.io/badge/arXiv-2609.00066-b31b1b.svg)](https://arxiv.org/abs/2609.00066) [![ACL Anthology](https://img.shields.io/badge/ACL%20Anthology-EMNLP%202026-blue.svg)](https://aclanthology.org/2026.emnlp-main.472/)
 
-This repository contains the PyTorch implementation of the EMNLP 2026 paper [OCGQuant: Outlier-Companion Grouping for NVFP4 Quantization](https://arxiv.org/abs/2609.00066).
+This repository contains the PyTorch implementation of the EMNLP 2026 (Main Conference) paper [OCGQuant: Outlier-Companion Grouping for NVFP4 Quantization](https://aclanthology.org/2026.emnlp-main.472/).
 
 ## Installation
 
@@ -90,10 +90,11 @@ This project builds on several excellent open-source efforts. We sincerely thank
 If you find this work useful in your research, please consider citing our paper:
 
 ```bibtex
-@article{yao2026ocgquant,
+@inproceedings{yao2026ocgquant,
   title={OCGQuant: Outlier-Companion Grouping for NVFP4 Quantization},
   author={Yao, Yishan and Li, Binjun and Yi, Hanling and Li, Pengyu and Liu, Xiaoqing and Yang, Zihan and Yu, Xiaotian and Yu, Zhiwen},
-  journal={arXiv preprint arXiv:2609.00066},
+  booktitle={Proceedings of the 2026 Conference on Empirical Methods in Natural Language Processing},
+  pages={10838--10855},
   year={2026}
 }
 ```
